@@ -40,7 +40,11 @@ const Add = ({ token }) => {
             const res = await axios.post(backendUrl + '/api/product/add', formData, { headers: { token } })
 
             if (res.data.success) {
-                toast.success('Product Added Successfully!')
+                toast.promise(res , {
+                    loading : 'Loading ...',
+                    success : 'Product Added Successfully!',
+                    error : 'Something Went Wrong'
+                })
                 setImg1(false)
                 setImg2(false)
                 setImg3(false)
