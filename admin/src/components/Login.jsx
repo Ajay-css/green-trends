@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import axios from "axios"
 import { backendUrl } from '../App'
 import toast from "react-hot-toast"
 
 const Login = ({ setToken }) => {
 
+    const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
 
@@ -17,7 +18,7 @@ const Login = ({ setToken }) => {
             });
             if (res.data.success) {
                 setToken(res.data.token)
-                toast.success('Login Success')
+                toast.success(`Welcome ${name}`)
             }
             else {
                 toast.error(res.data.message)
@@ -33,6 +34,10 @@ const Login = ({ setToken }) => {
             <div className='bg-white shadow-md rounded-lg px-8 py-6 max-w-md'>
                 <h1 className='text-2xl font-bold mb-4'>Admin Panel</h1>
                 <form onSubmit={onSubmitHandler}>
+                    <div className='mb-3 min-w-72'>
+                        <p className='text-sm font-medium text-gray-700 mb-2'>Name</p>
+                        <input onChange={(e) => setName(e.target.value)} value={name} className='rounded-md w-full px-3 py-2 border border-gray-300' type="text" placeholder='Enter Your Name' required />
+                    </div>
                     <div className='mb-3 min-w-72'>
                         <p className='text-sm font-medium text-gray-700 mb-2'>Email Address</p>
                         <input onChange={(e) => setEmail(e.target.value)} value={email} className='rounded-md w-full px-3 py-2 border border-gray-300' type="email" placeholder='your@email.com' required />

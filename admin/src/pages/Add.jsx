@@ -13,11 +13,28 @@ const Add = ({ token }) => {
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [price, setPrice] = useState("");
+    const [price, setPrice] = useState(""); // main/base price
     const [category, setCategory] = useState("Men");
     const [subCategory, setSubCategory] = useState("Topwear");
-    const [size, setSize] = useState([]);
+    const [sizes, setSizes] = useState([]); // now array of objects [{ size: 'S', price: 200 }]
     const [bestSeller, setBestSeller] = useState(false);
+
+    const toggleSize = (sizeLabel) => {
+        setSizes(prev => {
+            const exists = prev.find(s => s.size === sizeLabel)
+            if (exists) {
+                // remove size if clicked again
+                return prev.filter(s => s.size !== sizeLabel)
+            } else {
+                // add new size with default price = main price
+                return [...prev, { size: sizeLabel, price: price || 0 }]
+            }
+        })
+    }
+
+    const handleSizePriceChange = (sizeLabel, value) => {
+        setSizes(prev => prev.map(s => s.size === sizeLabel ? { ...s, price: value } : s))
+    }
 
     const onSubmitHandler = async (e) => {
         e.preventDefault();
@@ -30,7 +47,7 @@ const Add = ({ token }) => {
             formData.append("category", category)
             formData.append("subCategory", subCategory)
             formData.append("bestSeller", bestSeller)
-            formData.append("sizes", JSON.stringify(size))
+            formData.append("sizes", JSON.stringify(sizes))
             // images
             img1 && formData.append("image1", img1)
             img2 && formData.append("image2", img2)
@@ -46,6 +63,7 @@ const Add = ({ token }) => {
                 setImg3(false)
                 setImg4(false)
                 setPrice('')
+                setSizes([])
             }
             else {
                 toast.error(res.data.message)
@@ -57,11 +75,12 @@ const Add = ({ token }) => {
         }
     }
 
+    const sizeOptions = ["S", "M", "L", "XL", "XXL"]
+
     return (
         <form className='flex flex-col w-full items-start gap-3' onSubmit={onSubmitHandler}>
             <div>
                 <p className='mb-2'>Upload Image</p>
-
                 <div className='flex gap-2'>
                     <label htmlFor="img1">
                         <img className='w-20' src={!img1 ? assets.upload_area : URL.createObjectURL(img1)} alt="" />
@@ -89,7 +108,7 @@ const Add = ({ token }) => {
 
             <div className='w-full'>
                 <p className='mb-2'>Product Description</p>
-                <textarea type="text" placeholder='Write Content Here' onChange={(e) => setDescription(e.target.value)} value={description} className='w-full max-w-[500px] px-3 py-2' required />
+                <textarea placeholder='Write Content Here' onChange={(e) => setDescription(e.target.value)} value={description} className='w-full max-w-[500px] px-3 py-2' required />
             </div>
 
             <div className='flex flex-col sm:flex-row gap-2 w-full sm:gap-8'>
@@ -118,21 +137,26 @@ const Add = ({ token }) => {
             <div>
                 <p className='mb-2'>Product Sizes</p>
                 <div className='flex gap-3'>
-                    <div onClick={() => setSize(prev => prev.includes("S") ? prev.filter(item => item !== 'S') : [...prev, "S"])}>
-                        <p className={`${size.includes("S") ? "bg-pink-200" : "bg-slate-200"} px-3 py-1 cursor-pointer`}>S</p>
-                    </div>
-                    <div onClick={() => setSize(prev => prev.includes("M") ? prev.filter(item => item !== 'M') : [...prev, "M"])}>
-                        <p className={`${size.includes("M") ? "bg-pink-200" : "bg-slate-200"} px-3 py-1 cursor-pointer`}>M</p>
-                    </div>
-                    <div onClick={() => setSize(prev => prev.includes("L") ? prev.filter(item => item !== 'L') : [...prev, "L"])}>
-                        <p className={`${size.includes("L") ? "bg-pink-200" : "bg-slate-200"} px-3 py-1 cursor-pointer`}>L</p>
-                    </div>
-                    <div onClick={() => setSize(prev => prev.includes("XL") ? prev.filter(item => item !== 'XL') : [...prev, "XL"])}>
-                        <p className={`${size.includes("XL") ? "bg-pink-200" : "bg-slate-200"} px-3 py-1 cursor-pointer`}>XL</p>
-                    </div>
-                    <div onClick={() => setSize(prev => prev.includes("XXL") ? prev.filter(item => item !== 'XXL') : [...prev, "XXL"])}>
-                        <p className={`${size.includes("XXL") ? "bg-pink-200" : "bg-slate-200"} px-3 py-1 cursor-pointer`}>XXL</p>
-                    </div>
+                    {sizeOptions.map(sizeLabel => {
+                        const selected = sizes.find(s => s.size === sizeLabel)
+                        return (
+                            <div key={sizeLabel}>
+                                <p onClick={() => toggleSize(sizeLabel)}
+                                   className={`${selected ? "bg-pink-200" : "bg-slate-200"} px-3 py-1 cursor-pointer`}>
+                                   {sizeLabel}
+                                </p>
+                                {selected && (
+                                    <input 
+                                        type="number"
+                                        placeholder='Price'
+                                        value={selected.price}
+                                        onChange={(e) => handleSizePriceChange(sizeLabel, e.target.value)}
+                                        className='w-[70px] px-2 py-1 mt-1'
+                                    />
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
 

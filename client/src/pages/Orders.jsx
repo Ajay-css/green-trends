@@ -67,7 +67,12 @@ const Orders = () => {
                   <p className='min-w-2 h-2 rounded-full bg-green-500'></p>
                   <p className='text-sm md:text-base'>{item.status}</p>
                 </div>
-                <button onClick={loadOrderData} className='border px-4 py-2 text-sm font-medium rounded-sm'>Track Order</button>
+                <button onClick={loadOrderData} className='border border-green-400 px-4 py-2 text-sm font-medium rounded-sm'>Track Order</button>
+                {
+                  item.status === 'Delivered'
+                    ? <button onClick={loadOrderData} className='border border-red-500 px-4 py-2 text-sm font-medium rounded-sm'>Return Order</button>
+                    : <button onClick={loadOrderData} className='border border-red-500 px-4 py-2 text-sm font-medium rounded-sm'>Cancel Order</button>
+                }
               </div>
             </div>
           ))
