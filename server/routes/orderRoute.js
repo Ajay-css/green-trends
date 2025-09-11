@@ -1,5 +1,5 @@
 import express from "express";
-import { placeOrder, placeOrderStripe, allOrders, userOrders, updateStatus, verifyStripe } from "../controllers/orderController.js"
+import { placeOrder, placeOrderStripe, allOrders, userOrders, updateStatus, verifyStripe, cancelOrder } from "../controllers/orderController.js"
 import { adminAuth } from "../middlewares/adminAuth.js";
 import authUser from "../middlewares/auth.js";
 
@@ -18,6 +18,7 @@ orderRouter.post('/stripe', authUser, placeOrderStripe)
 // User Features
 
 orderRouter.post('/userorders', authUser, userOrders)
+orderRouter.post('/deleteorder', authUser, cancelOrder)
 
 // Verify Payment
 

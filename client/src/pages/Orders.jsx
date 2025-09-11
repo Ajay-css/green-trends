@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import axios from 'axios'
 import Title from '../components/Title'
+import toast from 'react-hot-toast'
 
 const Orders = () => {
 
@@ -29,7 +30,20 @@ const Orders = () => {
         setOrderData(allOrdersItem.reverse())
       }
     } catch (error) {
+    }
+  }
 
+  const cancelOrder = async (orderId) => {
+    try {
+      const res = await axios.post(backendUrl + '/api/order/deleteorder', { orderId }, { headers: { token } });
+      if (res.data.success) {
+        toast.success(res.data.message);;
+        await loadOrderData();
+      }
+      else {
+        toast.error(res.data.message)
+      }
+    } catch (error) {
     }
   }
 
@@ -71,7 +85,7 @@ const Orders = () => {
                 {
                   item.status === 'Delivered'
                     ? <button onClick={loadOrderData} className='border border-red-500 px-4 py-2 text-sm font-medium rounded-sm'>Return Order</button>
-                    : <button onClick={loadOrderData} className='border border-red-500 px-4 py-2 text-sm font-medium rounded-sm'>Cancel Order</button>
+                    : <button onClick={cancelOrder} className='border border-red-500 px-4 py-2 text-sm font-medium rounded-sm'>Cancel Order</button>
                 }
               </div>
             </div>

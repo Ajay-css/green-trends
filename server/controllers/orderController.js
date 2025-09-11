@@ -213,6 +213,17 @@ const updateStatus = async (req, res) => {
   }
 };
 
+const cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    await Order.findByIdAndDelete(orderId);
+    res.json({ success: true, message: "Order Cancelled Successfully!" })
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message })
+  }
+}
+
 //
 // ---------------- EXPORTS ----------------
 //
@@ -227,4 +238,5 @@ export {
   allOrders,
   userOrders,
   updateStatus,
+  cancelOrder
 };
