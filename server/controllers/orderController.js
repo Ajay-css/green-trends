@@ -2,14 +2,13 @@ import Order from "../models/OrderModel.js";
 import User from "../models/UserModel.js";
 import Stripe from "stripe";
 import { sendOrderEmail } from "../utils/email.js";
+import { sendWhatsApp } from "../utils/whatsapp.js";
 
 const currency = "inr";
 const deliveryCharge = 10;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-//
 // ---------------- CART LOGIC ----------------
-//
 
 // Add Product to Cart
 const addToCart = async (req, res) => {
@@ -66,9 +65,7 @@ const getCart = async (req, res) => {
   }
 };
 
-//
 // ---------------- ORDER LOGIC ----------------
-//
 
 // COD Order
 const placeOrder = async (req, res) => {
@@ -90,13 +87,22 @@ const placeOrder = async (req, res) => {
 
     await User.findByIdAndUpdate(userId, { cartData: {} });
 
-    // Send Emails
+    // Email send
     const user = await User.findById(userId);
     if (user?.email) {
       await sendOrderEmail(newOrder, user.email);
     }
 
-    res.json({ success: true, message: "Order Send Successfully!" });
+    // WhatsApp send
+    const msg = `✅ Hi ${address.firstName}, your order ${newOrder._id} has been placed successfully! Amount: ₹${amount}`;
+    if (address.phone) {
+      await sendWhatsApp("91" + address.phone, msg); // client
+    }
+    if (process.env.ADMIN_PHONE) {
+      await sendWhatsApp(process.env.ADMIN_PHONE, `📦 New order received: ${newOrder._id}, Amount: ₹${amount}`);
+    }
+
+    res.json({ success: true, message: "Order placed successfully!" });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
@@ -147,10 +153,19 @@ const placeOrderStripe = async (req, res) => {
       mode: "payment",
     });
 
-    // Send Emails
+    // Email send
     const user = await User.findById(userId);
     if (user?.email) {
       await sendOrderEmail(newOrder, user.email);
+    }
+
+    // WhatsApp send
+    const msg = `✅ Hi ${address.firstName}, your Stripe order ${newOrder._id} has been placed! Amount: ₹${amount}`;
+    if (address.phone) {
+      await sendWhatsApp("91" + address.phone, msg); // client
+    }
+    if (process.env.ADMIN_PHONE) {
+      await sendWhatsApp(process.env.ADMIN_PHONE, `💳 Stripe order received: ${newOrder._id}, Amount: ₹${amount}`);
     }
 
     res.json({ success: true, session_url: session.url });
@@ -213,20 +228,17 @@ const updateStatus = async (req, res) => {
   }
 };
 
+// Cancel Order
 const cancelOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
     await Order.findByIdAndDelete(orderId);
-    res.json({ success: true, message: "Order Cancelled Successfully!" })
+    res.json({ success: true, message: "Order Cancelled Successfully!" });
   } catch (error) {
     console.log(error.message);
-    res.json({ success: false, message: error.message })
+    res.json({ success: false, message: error.message });
   }
-}
-
-//
-// ---------------- EXPORTS ----------------
-//
+};
 
 export {
   addToCart,
@@ -238,5 +250,5 @@ export {
   allOrders,
   userOrders,
   updateStatus,
-  cancelOrder
+  cancelOrder,
 };
