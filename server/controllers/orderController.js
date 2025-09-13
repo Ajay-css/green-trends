@@ -101,8 +101,13 @@ const placeOrder = async (req, res) => {
 
     // WhatsApp send - Admin (full info)
     if (process.env.ADMIN_PHONE) {
+      const itemsList = newOrder.items
+        .map((item) => `${item.name} x ${item.quantity}`)
+        .join(", ");
+
       const adminMsg = `📦 New Order Alert!
 Order ID: ${newOrder._id}
+Products: ${itemsList}
 Name: ${address.firstName} ${address.lastName || ""}
 Phone: ${address.phone || "N/A"}
 Email: ${user?.email || "N/A"}
@@ -179,8 +184,13 @@ const placeOrderStripe = async (req, res) => {
 
     // WhatsApp send - Admin (full info)
     if (process.env.ADMIN_PHONE) {
+      const itemsList = newOrder.items
+        .map((item) => `${item.name} x ${item.quantity}`)
+        .join(", ");
+
       const adminMsg = `💳 Stripe Order Alert!
 Order ID: ${newOrder._id}
+Products: ${itemsList}
 Name: ${address.firstName} ${address.lastName || ""}
 Phone: ${address.phone || "N/A"}
 Email: ${user?.email || "N/A"}
