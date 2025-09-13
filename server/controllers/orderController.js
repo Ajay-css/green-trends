@@ -93,13 +93,25 @@ const placeOrder = async (req, res) => {
       await sendOrderEmail(newOrder, user.email);
     }
 
-    // WhatsApp send
+    // WhatsApp send - Client
     const msg = `✅ Hi ${address.firstName}, your order ${newOrder._id} has been placed successfully! Amount: ₹${amount}`;
     if (address.phone) {
-      await sendWhatsApp("91" + address.phone, msg); // client
+      await sendWhatsApp("91" + address.phone, msg);
     }
+
+    // WhatsApp send - Admin (full info)
     if (process.env.ADMIN_PHONE) {
-      await sendWhatsApp(process.env.ADMIN_PHONE, `📦 New order received: ${newOrder._id}, Amount: ₹${amount}`);
+      const adminMsg = `📦 New Order Alert!
+Order ID: ${newOrder._id}
+Name: ${address.firstName} ${address.lastName || ""}
+Phone: ${address.phone || "N/A"}
+Email: ${user?.email || "N/A"}
+Address: ${address.street || ""}, ${address.city || ""}, ${address.state || ""} - ${address.pincode || ""}
+Amount: ₹${amount}
+Payment: COD | Pending ❌
+Date: ${new Date(newOrder.date).toLocaleString()}`;
+
+      await sendWhatsApp(process.env.ADMIN_PHONE, adminMsg);
     }
 
     res.json({ success: true, message: "Order placed successfully!" });
@@ -159,13 +171,25 @@ const placeOrderStripe = async (req, res) => {
       await sendOrderEmail(newOrder, user.email);
     }
 
-    // WhatsApp send
+    // WhatsApp send - Client
     const msg = `✅ Hi ${address.firstName}, your Stripe order ${newOrder._id} has been placed! Amount: ₹${amount}`;
     if (address.phone) {
-      await sendWhatsApp("91" + address.phone, msg); // client
+      await sendWhatsApp("91" + address.phone, msg);
     }
+
+    // WhatsApp send - Admin (full info)
     if (process.env.ADMIN_PHONE) {
-      await sendWhatsApp(process.env.ADMIN_PHONE, `💳 Stripe order received: ${newOrder._id}, Amount: ₹${amount}`);
+      const adminMsg = `💳 Stripe Order Alert!
+Order ID: ${newOrder._id}
+Name: ${address.firstName} ${address.lastName || ""}
+Phone: ${address.phone || "N/A"}
+Email: ${user?.email || "N/A"}
+Address: ${address.street || ""}, ${address.city || ""}, ${address.state || ""} - ${address.pincode || ""}
+Amount: ₹${amount}
+Payment: Stripe | Pending ❌
+Date: ${new Date(newOrder.date).toLocaleString()}`;
+
+      await sendWhatsApp(process.env.ADMIN_PHONE, adminMsg);
     }
 
     res.json({ success: true, session_url: session.url });
@@ -196,8 +220,25 @@ const verifyStripe = async (req, res) => {
 // Admin: All Orders
 const allOrders = async (req, res) => {
   try {
-    const orders = await Order.find({});
-    res.json({ success: true, orders });
+    const orders = await Order.find({})
+      .populate("userId", "name email")
+      .sort({ date: -1 });
+
+    const formattedOrders = orders.map((order) => ({
+      orderId: order._id,
+      userName: order.userId?.name || "Unknown",
+      userEmail: order.userId?.email || "Not Provided",
+      phone: order.address?.phone || "Not Provided",
+      address: `${order.address?.firstName || ""} ${order.address?.lastName || ""}, ${order.address?.street || ""}, ${order.address?.city || ""}, ${order.address?.state || ""} - ${order.address?.pincode || ""}`,
+      amount: order.amount,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.payment ? "Paid ✅" : "Pending ❌",
+      date: new Date(order.date).toLocaleString(),
+      items: order.items,
+      status: order.status || "Pending",
+    }));
+
+    res.json({ success: true, orders: formattedOrders });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
