@@ -11,68 +11,56 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // ---------------- CART LOGIC ----------------
 
 // Add Product to Cart
-const addToCart = async (req, res) => {
+export const addToCart = async (req, res) => {
   try {
     const { userId, itemId, size } = req.body;
     const userData = await User.findById(userId);
     let cartData = userData.cartData;
 
-    if (cartData[itemId]) {
-      if (cartData[itemId][size]) {
-        cartData[itemId][size] += 1;
-      } else {
-        cartData[itemId][size] = 1;
-      }
-    } else {
-      cartData[itemId] = {};
-      cartData[itemId][size] = 1;
-    }
+    if (!cartData[itemId]) cartData[itemId] = {};
+    cartData[itemId][size] = (cartData[itemId][size] || 0) + 1;
 
     await User.findByIdAndUpdate(userId, { cartData });
     res.json({ success: true, message: "Added To Cart Successfully!" });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // Update Product in Cart
-const updateCart = async (req, res) => {
+export const updateCart = async (req, res) => {
   try {
     const { userId, itemId, size, quantity } = req.body;
     const userData = await User.findById(userId);
-    let cartData = userData.cartData;
-    cartData[itemId][size] = quantity;
-
-    await User.findByIdAndUpdate(userId, { cartData });
+    userData.cartData[itemId][size] = quantity;
+    await User.findByIdAndUpdate(userId, { cartData: userData.cartData });
     res.json({ success: true, message: "Cart Updated!" });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // Get Cart
-const getCart = async (req, res) => {
+export const getCart = async (req, res) => {
   try {
     const { userId } = req.body;
     const userData = await User.findById(userId);
-    let cartData = userData.cartData;
-    res.json({ success: true, cartData });
+    res.json({ success: true, cartData: userData.cartData });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // ---------------- ORDER LOGIC ----------------
 
-// COD Order
-const placeOrder = async (req, res) => {
+// Place COD Order
+export const placeOrder = async (req, res) => {
   try {
     const { userId, items, amount, address } = req.body;
-
-    const orderData = {
+    const order = new Order({
       userId,
       items,
       amount,
@@ -80,59 +68,54 @@ const placeOrder = async (req, res) => {
       paymentMethod: "COD",
       payment: false,
       date: Date.now(),
-    };
+    });
+    await order.save();
 
-    const newOrder = new Order(orderData);
-    await newOrder.save();
-
+    const user = await User.findById(userId);
     await User.findByIdAndUpdate(userId, { cartData: {} });
 
-    // Email send
-    const user = await User.findById(userId);
+    // ✅ Send email to user & admin
     if (user?.email) {
-      await sendOrderEmail(newOrder, user.email);
+      await sendOrderEmail(order, user.email);
     }
 
-    // WhatsApp send - Client
-    const msg = `✅ Hi ${address.firstName}, your order ${newOrder._id} has been placed successfully! Amount: ₹${amount}`;
-    if (address.phone) {
-      await sendWhatsApp("91" + address.phone, msg);
-    }
+    // ✅ WhatsApp to user
+    const msg = `✅ Hi ${address.firstName}, your order ${order._id} has been placed successfully! Amount: ₹${amount}`;
+    if (address.phone) await sendWhatsApp("91" + address.phone, msg);
 
-    // WhatsApp send - Admin (full info)
+    // ✅ WhatsApp to admin
     if (process.env.ADMIN_PHONE) {
-      const itemsList = newOrder.items
+      const itemsList = order.items
         .map((item) => `${item.name} x ${item.quantity}`)
         .join(", ");
-
-      const adminMsg = `📦 New Order Alert!
-Order ID: ${newOrder._id}
+      const adminMsg = `📦 New COD Order Alert!
+Order ID: ${order._id}
 Products: ${itemsList}
 Name: ${address.firstName} ${address.lastName || ""}
 Phone: ${address.phone || "N/A"}
 Email: ${user?.email || "N/A"}
-Address: ${address.street || ""}, ${address.city || ""}, ${address.state || ""} - ${address.pincode || ""}
+Address: ${address.street}, ${address.city}, ${address.state} - ${address.pincode}
 Amount: ₹${amount}
 Payment: COD | Pending ❌
-Date: ${new Date(newOrder.date).toLocaleString()}`;
+Date: ${new Date(order.date).toLocaleString()}`;
 
       await sendWhatsApp(process.env.ADMIN_PHONE, adminMsg);
     }
 
     res.json({ success: true, message: "Order placed successfully!" });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Stripe Order
-const placeOrderStripe = async (req, res) => {
+// Place Stripe Order
+export const placeOrderStripe = async (req, res) => {
   try {
     const { userId, items, amount, address } = req.body;
     const { origin } = req.headers;
 
-    const orderData = {
+    const order = new Order({
       userId,
       items,
       amount,
@@ -140,14 +123,12 @@ const placeOrderStripe = async (req, res) => {
       paymentMethod: "Stripe",
       payment: false,
       date: Date.now(),
-    };
-
-    const newOrder = new Order(orderData);
-    await newOrder.save();
+    });
+    await order.save();
 
     const line_items = items.map((item) => ({
       price_data: {
-        currency: currency,
+        currency,
         product_data: { name: item.name },
         unit_amount: item.price * 100,
       },
@@ -156,7 +137,7 @@ const placeOrderStripe = async (req, res) => {
 
     line_items.push({
       price_data: {
-        currency: currency,
+        currency,
         product_data: { name: "Delivery Charges" },
         unit_amount: deliveryCharge * 100,
       },
@@ -164,55 +145,50 @@ const placeOrderStripe = async (req, res) => {
     });
 
     const session = await stripe.checkout.sessions.create({
-      success_url: `${origin}/verify?success=true&orderId=${newOrder._id}`,
-      cancel_url: `${origin}/verify?false=true&orderId=${newOrder._id}`,
+      success_url: `${origin}/verify?success=true&orderId=${order._id}`,
+      cancel_url: `${origin}/verify?success=false&orderId=${order._id}`,
       line_items,
       mode: "payment",
     });
 
-    // Email send
     const user = await User.findById(userId);
-    if (user?.email) {
-      await sendOrderEmail(newOrder, user.email);
-    }
 
-    // WhatsApp send - Client
-    const msg = `✅ Hi ${address.firstName}, your Stripe order ${newOrder._id} has been placed! Amount: ₹${amount}`;
-    if (address.phone) {
-      await sendWhatsApp("91" + address.phone, msg);
-    }
+    // ✅ Email both
+    if (user?.email) await sendOrderEmail(order, user.email);
 
-    // WhatsApp send - Admin (full info)
+    // ✅ WhatsApp user
+    const msg = `💳 Hi ${address.firstName}, your Stripe order ${order._id} has been placed! Amount: ₹${amount}`;
+    if (address.phone) await sendWhatsApp("91" + address.phone, msg);
+
+    // ✅ WhatsApp admin
     if (process.env.ADMIN_PHONE) {
-      const itemsList = newOrder.items
+      const itemsList = order.items
         .map((item) => `${item.name} x ${item.quantity}`)
         .join(", ");
-
       const adminMsg = `💳 Stripe Order Alert!
-Order ID: ${newOrder._id}
+Order ID: ${order._id}
 Products: ${itemsList}
 Name: ${address.firstName} ${address.lastName || ""}
 Phone: ${address.phone || "N/A"}
 Email: ${user?.email || "N/A"}
-Address: ${address.street || ""}, ${address.city || ""}, ${address.state || ""} - ${address.pincode || ""}
 Amount: ₹${amount}
 Payment: Stripe | Pending ❌
-Date: ${new Date(newOrder.date).toLocaleString()}`;
+Date: ${new Date(order.date).toLocaleString()}`;
 
       await sendWhatsApp(process.env.ADMIN_PHONE, adminMsg);
     }
 
     res.json({ success: true, session_url: session.url });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // Verify Stripe Payment
-const verifyStripe = async (req, res) => {
-  const { orderId, success, userId } = req.body;
+export const verifyStripe = async (req, res) => {
   try {
+    const { orderId, success, userId } = req.body;
     if (success === "true") {
       await Order.findByIdAndUpdate(orderId, { payment: true });
       await User.findByIdAndUpdate(userId, { cartData: {} });
@@ -222,84 +198,71 @@ const verifyStripe = async (req, res) => {
       res.json({ success: false });
     }
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // Admin: All Orders
-const allOrders = async (req, res) => {
+export const allOrders = async (req, res) => {
   try {
     const orders = await Order.find({})
       .populate("userId", "name email")
       .sort({ date: -1 });
 
-    const formattedOrders = orders.map((order) => ({
-      orderId: order._id,
-      userName: order.userId?.name || "Unknown",
-      userEmail: order.userId?.email || "Not Provided",
-      phone: order.address?.phone || "Not Provided",
-      address: `${order.address?.firstName || ""} ${order.address?.lastName || ""}, ${order.address?.street || ""}, ${order.address?.city || ""}, ${order.address?.state || ""} - ${order.address?.pincode || ""}`,
-      amount: order.amount,
-      paymentMethod: order.paymentMethod,
-      paymentStatus: order.payment ? "Paid ✅" : "Pending ❌",
-      date: new Date(order.date).toLocaleString(),
-      items: order.items,
-      status: order.status || "Pending",
+    const formatted = orders.map((o) => ({
+      orderId: o._id,
+      userName: o.userId?.name || "Unknown",
+      userEmail: o.userId?.email || "N/A",
+      phone: o.address?.phone || "N/A",
+      address: `${o.address?.firstName || ""} ${o.address?.lastName || ""}, ${o.address?.street || ""}, ${o.address?.city || ""}, ${o.address?.state || ""} - ${o.address?.pincode || ""}`,
+      amount: o.amount,
+      paymentMethod: o.paymentMethod,
+      paymentStatus: o.payment ? "Paid ✅" : "Pending ❌",
+      date: new Date(o.date).toLocaleString(),
+      items: o.items,
+      status: o.status || "Pending",
     }));
 
-    res.json({ success: true, orders: formattedOrders });
+    res.json({ success: true, orders: formatted });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
-// User: My Orders
-const userOrders = async (req, res) => {
+// User Orders
+export const userOrders = async (req, res) => {
   try {
     const { userId } = req.body;
     const orders = await Order.find({ userId });
     res.json({ success: true, orders });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // Update Order Status
-const updateStatus = async (req, res) => {
+export const updateStatus = async (req, res) => {
   try {
     const { orderId, status } = req.body;
     await Order.findByIdAndUpdate(orderId, { status });
     res.json({ success: true, message: "Status Updated!" });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
 };
 
 // Cancel Order
-const cancelOrder = async (req, res) => {
+export const cancelOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
     await Order.findByIdAndDelete(orderId);
     res.json({ success: true, message: "Order Cancelled Successfully!" });
   } catch (error) {
-    console.log(error.message);
+    console.error(error.message);
     res.json({ success: false, message: error.message });
   }
-};
-
-export {
-  addToCart,
-  updateCart,
-  getCart,
-  placeOrder,
-  placeOrderStripe,
-  verifyStripe,
-  allOrders,
-  userOrders,
-  updateStatus,
-  cancelOrder,
 };
