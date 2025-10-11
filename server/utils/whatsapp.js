@@ -1,16 +1,59 @@
-import twilio from "twilio";
+// utils/whatsapp.js
+import pkg from "whatsapp-web.js";
+import qrcode from "qrcode-terminal";
 
-const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
+const { Client, LocalAuth } = pkg;
 
-export const sendWhatsApp = async (to, message) => {
+let client;
+
+export const initWhatsApp = () => {
+  if (client) return client;
+
+  client = new Client({
+    authStrategy: new LocalAuth({
+      clientId: "mern-ecommerce-admin",
+    }),
+    puppeteer: {
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    },
+  });
+
+  client.on("qr", (qr) => {
+    console.log("\n📱 Scan this QR code with your ADMIN WhatsApp:");
+    qrcode.generate(qr, { small: true });
+  });
+
+  client.on("ready", () => {
+    console.log("✅ WhatsApp connected and ready!");
+  });
+
+  client.on("auth_failure", (msg) => {
+    console.error("❌ Auth failed:", msg);
+  });
+
+  client.on("disconnected", (reason) => {
+    console.log("⚠️ WhatsApp disconnected:", reason);
+    client.destroy();
+    client = null;
+    setTimeout(initWhatsApp, 5000);
+  });
+
+  client.initialize();
+  return client;
+};
+
+export const sendWhatsApp = async (phone, message) => {
   try {
-    const res = await client.messages.create({
-      from: "whatsapp:+14155238886", // Twilio sandbox number (fixed)
-      to: "whatsapp:+" + to,         // eg: "whatsapp:+919876543210"
-      body: message,
-    });
-    console.log(`✅ WhatsApp sent to ${to}, SID: ${res.sid}`);
+    const client = initWhatsApp();
+
+    let formatted = phone.replace(/\D/g, ""); // remove non-digits
+    if (!formatted.startsWith("91")) formatted = "91" + formatted;
+    const chatId = formatted + "@c.us";
+
+    await client.sendMessage(chatId, message);
+    console.log(`📩 WhatsApp message sent to ${phone}`);
   } catch (error) {
-    console.error("❌ WhatsApp send failed:", error.message);
+    console.error("Error sending WhatsApp:", error.message);
   }
 };
