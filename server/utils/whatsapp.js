@@ -16,6 +16,8 @@ export const initWhatsApp = () => {
     puppeteer: {
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe", // Windows path
+      timeout: 60000 // 60 seconds
     },
   });
 

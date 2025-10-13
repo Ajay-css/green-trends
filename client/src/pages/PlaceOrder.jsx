@@ -77,6 +77,54 @@ const PlaceOrder = () => {
           }
           break;
 
+        case 'razorpay':
+          const responseRazorpay = await axios.post(
+            backendUrl + '/api/order/razorpay',
+            { ...orderData, userId: token.userId },
+            { headers: { token } }
+          );
+
+          if (responseRazorpay.data.success) {
+            const { razorpayOrder, orderId } = responseRazorpay.data;
+
+            const options = {
+              key: import.meta.env.VITE_RAZORPAY_KEY_ID, // your key from env
+              amount: razorpayOrder.amount,
+              currency: 'INR',
+              name: 'Green Trendz',
+              description: 'Order Payment',
+              order_id: razorpayOrder.id,
+              handler: async function (response) {
+                const verifyRes = await axios.post(
+                  backendUrl + '/api/order/verify-razorpay',
+                  { userId: token.userId, items: orderItems, amount: getCartAmount(), address: formData },
+                  { headers: { token } }
+                );
+                if (verifyRes.data.success) {
+                  toast.success("Payment successful!");
+                  setCartItems({});
+                  navigate('/orders');
+                } else {
+                  toast.error("Payment verification failed!");
+                }
+              },
+              prefill: {
+                name: formData.firstName + " " + formData.lastName,
+                email: "test@example.com",
+                contact: formData.phone,
+              },
+              theme: {
+                color: '#000000',
+              },
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+          } else {
+            toast.error(responseRazorpay.data.message);
+          }
+          break;
+
         default:
           break
       }
@@ -131,9 +179,9 @@ const PlaceOrder = () => {
               <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'stripe' ? "bg-green-400" : ""}`}></p>
               <img className='h-5 mx-4' src={assets.stripe_logo} alt="" />
             </div>
-            <div onClick={() => setMethod('cod')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-              <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'cod' ? "bg-green-400" : ""}`}></p>
-              <p className='text-gray-500 text-sm font-medium mx-4'>CASH ON DELIVERY</p>
+            <div onClick={() => setMethod('razorpay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+              <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'razorpay' ? "bg-green-400" : ""}`}></p>
+              <img className='h-5 mx-4' src={assets.razorpay_logo} alt="razorpay" />
             </div>
           </div>
 

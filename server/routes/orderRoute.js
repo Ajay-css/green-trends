@@ -1,27 +1,24 @@
 import express from "express";
-import { placeOrder, placeStripeOrder, allOrders, userOrders, updateStatus, verifyStripe, cancelOrder } from "../controllers/orderController.js";
-import { adminAuth } from "../middlewares/adminAuth.js";
 import authUser from "../middlewares/auth.js";
+import { adminAuth } from "../middlewares/adminAuth.js";
+import { placeStripeOrder, verifyStripe, placeRazorpayOrder, verifyRazorpayPayment, allOrders, userOrders, updateStatus, cancelOrder } from "../controllers/orderController.js";
 
-const orderRouter = express.Router();
+const router = express.Router();
 
-// Admin Features
+// Admin
+router.post("/list", adminAuth, allOrders);
+router.post("/status", adminAuth, updateStatus);
 
-orderRouter.post('/list', adminAuth, allOrders)
-orderRouter.post('/status', adminAuth, updateStatus)
+// User Orders
+router.post("/userorders", authUser, userOrders);
+router.post("/deleteorder", authUser, cancelOrder);
 
-// Payment Features
+// Stripe
+router.post("/stripe", authUser, placeStripeOrder);
+router.post("/verifyStripe", authUser, verifyStripe);
 
-orderRouter.post('/place', authUser, placeOrder)
-orderRouter.post('/stripe', authUser, placeStripeOrder)
+// Razorpay
+router.post("/razorpay", authUser, placeRazorpayOrder);
+router.post("/verifyRazorpay", authUser, verifyRazorpayPayment);
 
-// User Features
-
-orderRouter.post('/userorders', authUser, userOrders)
-orderRouter.post('/deleteorder', authUser, cancelOrder)
-
-// Verify Payment
-
-orderRouter.post('/verifyStripe' , authUser , verifyStripe)
-
-export default orderRouter;
+export default router;
