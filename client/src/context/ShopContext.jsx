@@ -136,7 +136,7 @@ const ShopContextProvider = (props) => {
 
   useEffect(() => {
     getProductsData();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!token && localStorage.getItem("token")) {
