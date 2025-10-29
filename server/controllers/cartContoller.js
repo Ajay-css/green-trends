@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { sendOrderEmail } from "../utils/email.js";
 
 const currency = "inr";
-const deliveryCharge = 10;
+const deliveryCharge = 60;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 //
